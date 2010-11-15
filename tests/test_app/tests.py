@@ -17,6 +17,7 @@ from sorl.thumbnail.images import ImageFile, DummyImageFile
 from sorl.thumbnail import default
 from sorl.thumbnail.parsers import parse_crop, parse_geometry
 from sorl.thumbnail.templatetags.thumbnail import margin
+from sorl.thumbnail.models import Preset
 from test_app.models import Item
 
 
@@ -404,4 +405,38 @@ class ModelTestCase(SimpleTestCaseBase):
         self.assertEqual(None, self.kvstore._get(im1.key, identity='thumbnails'))
         self.assertEqual(0, len(list(self.kvstore._find_keys(identity='image'))))
         self.assertEqual(0, len(list(self.kvstore._find_keys(identity='thumbnails'))))
+
+
+class PresetTestCase(SimpleTestCaseBase):
+    def setUp(self):
+        super(PresetTestCase, self).setUp()
+        presets = [
+            ("100x100", "100x100", ''),
+            ("test_1",  "200x100", 'crop="50% 50%"'),
+            ("test_2", "200x100", ''),
+            ("test_6", "400x400", ''),
+            ("test_7", "100x100", 'crop="center" upscale="True" quality=70')
+        ]
+        for p in presets:
+            Preset.objects.get_or_create(name=p[0], geometry=p[1], options=p[2])
+
+    def testModel(self):
+        item = Item.objects.get(image='500x500.jpg')
+        val = render_to_string('thumbnailpreset1.html', {
+            'item': item,
+        }).strip()
+        self.assertEqual(val, u'<img style="margin:0px 0px 0px 0px" width="200" height="100">')
+        val = render_to_string('thumbnailpreset2.html', {
+            'item': item,
+        }).strip()
+        self.assertEqual(val, u'<img style="margin:0px 50px 0px 50px" width="100" height="100">')
+
+    def test_nested(self):
+        item = Item.objects.get(image='500x500.jpg')
+        val = render_to_string('thumbnailpreset6.html', {
+            'item': item,
+        }).strip()
+        self.assertEqual(val, ('<a href="/media/test/cache/57/ba/57ba10c5a6c56dc71362d9b1427cb0b4.jpg">'
+                               '<img src="/media/test/cache/6c/c3/6cc32cd4aa002c577b534442c11e07d2.jpg" width="400" height="400">'
+                               '</a>'))
 

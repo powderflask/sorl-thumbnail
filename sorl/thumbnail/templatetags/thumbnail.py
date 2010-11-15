@@ -1,11 +1,13 @@
 import re
 from django.template import Library, Node, NodeList, TemplateSyntaxError
 from django.utils.encoding import smart_str
+from django.core.exceptions import ObjectDoesNotExist
 from functools import wraps
 from sorl.thumbnail.conf import settings
 from sorl.thumbnail.images import ImageFile, DummyImageFile
 from sorl.thumbnail import default
 from sorl.thumbnail.parsers import parse_geometry
+from sorl.thumbnail.models import Preset
 
 
 register = Library()
@@ -82,6 +84,12 @@ class ThumbnailNode(ThumbnailNodeBase):
         options = {}
         for key, value in self.options.iteritems():
             options[key] = value.resolve(context)
+        try:  # geometry may define a thumbnail preset
+            preset = Preset.objects.get(name=geometry)
+            geometry = preset.geometry
+            options.update(preset.get_options())
+        except ObjectDoesNotExist:
+            pass  # geometery is not a preset name, assume it's a geometry string
         if settings.THUMBNAIL_DUMMY:
             thumbnail = DummyImageFile(geometry)
         elif file_:
